@@ -1,5 +1,11 @@
 # vercel
 
+## 46.0.5
+
+### Patch Changes
+
+- ([#13705](https://github.com/vercel/vercel/pull/13705))
+
 ## 46.0.4
 
 ### Patch Changes
