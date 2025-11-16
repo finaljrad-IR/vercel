@@ -48,5 +48,10 @@
   },
   "browserslist": [
     "defaults"
-  ]
+  ],
+  "pnpm": {
+    "overrides": {
+      "ejs@<=3.1.10": "3.1.10"
+    }
+  }
 }
