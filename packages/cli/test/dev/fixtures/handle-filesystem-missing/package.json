@@ -4,5 +4,8 @@
   },
   "dependencies": {
     "umi": "3.2.1"
+  },
+  "overrides": {
+    "ejs@<=3.1.10": "3.1.10"
   }
 }
