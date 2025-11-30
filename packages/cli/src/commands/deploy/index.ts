@@ -69,7 +69,8 @@ import { DeployTelemetryClient } from '../../util/telemetry/commands/deploy';
 import output from '../../output-manager';
 import { ensureLink } from '../../util/link/ensure-link';
 import { UploadErrorMissingArchive } from '../../util/deploy/process-deployment';
-import { displayBuildLogs } from '../../util/logs';
+import { displayBuildLogsUntilFinalError } from '../../util/logs';
+import { determineAgent } from '@vercel/detect-agent';
 
 export default async (client: Client): Promise<number> => {
   const telemetryClient = new DeployTelemetryClient({
@@ -104,6 +105,7 @@ export default async (client: Client): Promise<number> => {
     telemetryClient.trackCliFlagPublic(parsedArguments.flags['--public']);
     telemetryClient.trackCliFlagLogs(parsedArguments.flags['--logs']);
     telemetryClient.trackCliFlagNoLogs(parsedArguments.flags['--no-logs']);
+    telemetryClient.trackCliFlagGuidance(parsedArguments.flags['--guidance']);
     telemetryClient.trackCliFlagForce(parsedArguments.flags['--force']);
     telemetryClient.trackCliFlagWithCache(
       parsedArguments.flags['--with-cache']
@@ -469,7 +471,7 @@ export default async (client: Client): Promise<number> => {
   const deployStamp = stamp();
   let deployment = null;
   const noWait = !!parsedArguments.flags['--no-wait'];
-  const withLogs = parsedArguments.flags['--logs'] ? true : false;
+  const withFullLogs = parsedArguments.flags['--logs'] ? true : false;
 
   const localConfigurationOverrides = pickOverrides(localConfig);
 
@@ -512,7 +514,7 @@ export default async (client: Client): Promise<number> => {
       target,
       skipAutoDetectionConfirmation: autoConfirm,
       noWait,
-      withLogs,
+      withFullLogs,
       autoAssignCustomDomains,
     };
 
@@ -668,9 +670,7 @@ export default async (client: Client): Promise<number> => {
     }
 
     if (err instanceof BuildError) {
-      output.error(err.message || 'Build failed');
-      output.print('\n');
-      if (withLogs === false) {
+      if (withFullLogs === false) {
         try {
           if (now.url) {
             const failedDeployment = await getDeployment(
@@ -678,12 +678,11 @@ export default async (client: Client): Promise<number> => {
               contextName,
               now.url
             );
-            const { promise } = displayBuildLogs(
+            await displayBuildLogsUntilFinalError(
               client,
               failedDeployment,
-              false
+              err.message
             );
-            await promise;
           }
         } catch (_) {
           output.log(
@@ -711,7 +710,9 @@ export default async (client: Client): Promise<number> => {
     return 1;
   }
 
-  return printDeploymentStatus(deployment, deployStamp, noWait);
+  const { isAgent } = await determineAgent();
+  const guidanceMode = parsedArguments.flags['--guidance'] ?? isAgent;
+  return printDeploymentStatus(deployment, deployStamp, noWait, guidanceMode);
 };
 
 function handleCreateDeployError(error: Error, localConfig: VercelConfig) {
